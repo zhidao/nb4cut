@@ -11,6 +11,7 @@ typedef unsigned int uint32_t;
 #define NB4_WIDTH          64
 #define NB4_HEIGHT         80
 #define NB4_NFACE         311 /* number of faces */
+#define NB4_NMON          256 /* number of montages */
 #define NB4_BPP             1 /* byte per pixel */
 
 #define NB4_HEADERSIZE     54
@@ -73,16 +74,16 @@ void nb4cut_write_palette(FILE *fout, uint32_t palette[])
     fwrite( &palette[i], 4, 1, fout );
 }
 
-void nb4cut_write_pixel(FILE *fin, FILE *fout, int id)
+void nb4cut_write_pixel(FILE *fin, FILE *fout, int id, int nface)
 {
   int32_t val;
   int i, j;
 
-  if( id >= NB4_NFACE ){
-    fprintf( stderr, "invalid face identifier %d/%d\n", id, NB4_NFACE );
+  if( id >= nface ){
+    fprintf( stderr, "invalid face identifier %d/%d\n", id, nface );
     return;
   }
-  fseek( fin, NB4_HEADERSIZE + NB4_NCOLOR*4 + ( NB4_NFACE - id - 1 ) * NB4_WIDTH * NB4_HEIGHT * NB4_BPP, SEEK_SET );
+  fseek( fin, NB4_HEADERSIZE + NB4_NCOLOR*4 + ( nface - id - 1 ) * NB4_WIDTH * NB4_HEIGHT * NB4_BPP, SEEK_SET );
   for( i=0; i<NB4_HEIGHT; i++ )
     for( j=0; j<NB4_WIDTH; j++ ){
       if( fread( &val, NB4_BPP, 1, fin ) == 1 )
@@ -101,7 +102,7 @@ FILE *nb4cut_open(char *filename, char *mode)
   return fp;
 }
 
-const char *facename[] = {
+const char *nb4facename[] = {
   "date_harumune",
   "date_terumune",
   "date_masamune",
@@ -226,7 +227,7 @@ const char *facename[] = {
   "furuta_oribe",
   "kyogoku_takatsugu",
   "momochi_tamba",
-  "",
+  "tsutsui_sadatsugu",
   "yagyu_muneyoshi",
   "yagyu_munenori",
   "takayam_ukon",
@@ -238,8 +239,8 @@ const char *facename[] = {
   "miyamoto_musashi",
   "kobayakawa_hidekane",
   "kobayakawa_hideaki",
-  "sogo_nagayasu",
-  "bessho_nagaharu",
+  "sogo_masayasu",
+  "miyoshi_nagaharu",
   "hashiba_hideyoshi",
   "imai_sokyu",
   "sennno_rikyu",
@@ -329,7 +330,7 @@ const char *facename[] = {
   "tsutsui_junkei",
   "suzuki_sadayu",
   "suzuki_shigehide",
-  "",
+  "miyoshi_chokei",
   "miyoshi_nagahaya",
   "miyoshi_masayasu",
   "hatano_hideharu",
@@ -349,9 +350,9 @@ const char *facename[] = {
   "shimizu_muneharu",
   "kikkawa_motoharu",
   "kikkawa_hiroie",
-  "",
+  "sogo_kazumasa",
   "iwanari_tomomichi",
-  "",
+  "miyoshi_yoshikata",
   "kouno_michinobu",
   "kouno_michinao",
   "chousokabe_motochika",
@@ -376,29 +377,29 @@ const char *facename[] = {
   "hashiba_hidenaga",
   "marume_chokei",
   "takugen",
-  "",
+  "konoe_sakihisa",
   "louis_frois",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
-  "",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
+  "hime",
   "",
   "yazawa_yoritsuna",
   "kani_saizo",
@@ -415,33 +416,45 @@ const char *facename[] = {
   "sanada_daisuke",
 };
 
-void nb4cut_output(FILE *fin, uint32_t palette[], int id)
+void nb4cut_output(FILE *fin, uint32_t palette[], int id, int nface)
 {
   FILE *fout;
   char foutname[BUFSIZ];
 
-  sprintf( foutname, "face%03d%s.bmp", id, facename[id] );
+  if( nface == NB4_NFACE )
+    sprintf( foutname, "face%03d%s.bmp", id, nb4facename[id] );
+  else
+    sprintf( foutname, "face_mon%03d.bmp", id ); /* montages */
   if( !( fout = nb4cut_open( foutname, "w" ) ) )
     exit( EXIT_FAILURE );
   nb4cut_write_header( fout );
   nb4cut_write_palette( fout, palette );
-  nb4cut_write_pixel( fin, fout, id );
+  nb4cut_write_pixel( fin, fout, id, nface );
   fclose( fout );
 }
 
-#define FINNAME  "Facedata.nb4"
-
-int main(int argc, char *argv[])
+int nb4cut_output_batch(char filename[], int nface)
 {
   FILE *fin;
   uint32_t palette[NB4_NCOLOR];
   int id;
 
-  if( !( fin = nb4cut_open( argc > 1 ? argv[1] : FINNAME, "r" ) ) )
-    exit( EXIT_FAILURE );
+  if( !( fin = nb4cut_open( filename, "r" ) ) ) return -1;
   nb4cut_read_palette( fin, palette );
-  for( id=0; id<NB4_NFACE; id++ )
-    nb4cut_output( fin, palette, id );
+  for( id=0; id<nface; id++ )
+    nb4cut_output( fin, palette, id, nface );
   fclose( fin );
+  return 0;
+}
+
+#define FINNAME     "Facedata.nb4"
+#define FINNAME_MON "Mondata.nb4"
+
+int main(int argc, char *argv[])
+{
+  /* original face data */
+  nb4cut_output_batch( argc > 1 ? argv[1] : FINNAME, NB4_NFACE );
+  /* montage data */
+  nb4cut_output_batch( argc > 2 ? argv[2] : FINNAME_MON, NB4_NMON );
   return EXIT_SUCCESS;
 }
